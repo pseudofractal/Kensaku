@@ -1,6 +1,7 @@
 mod config;
 mod output;
 mod info;
+mod fractal;
 
 use config::Config;
 
