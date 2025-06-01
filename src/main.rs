@@ -1,8 +1,10 @@
 mod config;
+mod output;
+mod info;
 
 use config::Config;
 
 fn main() {
     let config = Config::load();
-    println!("Loaded Config: {:#?}", config);
+    output::print_info(&config);
 }

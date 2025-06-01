@@ -3,10 +3,15 @@ use std::{fs, path::PathBuf};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub ascii_art: Option<String>,
-    pub show_cpu: Option<bool>,
-    pub show_memory: Option<bool>,
-    pub show_uptime: Option<bool>,
+    pub art: Option<String>,
+    pub user_host: Option<bool>,
+    pub cpu: Option<bool>,
+    pub memory: Option<bool>,
+    pub uptime: Option<bool>,
+    pub os: Option<bool>,
+    pub kernel: Option<bool>,
+    pub disk: Option<bool>,
+    pub ip: Option<bool>,
 }
 
 impl Config {
