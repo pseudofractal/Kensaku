@@ -1,23 +1,36 @@
-use sysinfo::Disks;
+use std::process::Command;
 
-pub fn get_disk_usage() -> Option<(f64, f64)> {
-    let mut total_space = 0;
-    let mut available_space = 0;
-    
-    let disks = Disks::new_with_refreshed_list();
-    for disk in &disks {
-        total_space += disk.total_space();
-        available_space += disk.available_space();
-    }
-    
+/// Return used and total bytes on the filesystem containing `/`.
+pub fn get_disk_usage() -> Option<(u64, u64)> {
+  let output = Command::new("df")
+    .args(["-Pk", "/"])
+    .env("LC_ALL", "C")
+    .output()
+    .ok()?;
+  if !output.status.success() {
+    return None;
+  }
+  parse_df(&String::from_utf8_lossy(&output.stdout))
+}
 
-    if total_space == 0 {
-        return None
-    }
-    let used_bytes = total_space - available_space;
-    let divisor = 1024_f64.powi(4);
-    let used_tib = (used_bytes as f64) / divisor;
-    let total_tib = (total_space as f64) / divisor;
+fn parse_df(output: &str) -> Option<(u64, u64)> {
+  let line = output.lines().nth(1)?;
+  let fields: Vec<_> = line.split_whitespace().collect();
+  // POSIX df -P reports 1024-byte blocks with -k.
+  let total = fields.get(1)?.parse::<u64>().ok()?.checked_mul(1024)?;
+  let used = fields.get(2)?.parse::<u64>().ok()?.checked_mul(1024)?;
+  (total > 0 && used <= total).then_some((used, total))
+}
 
-    Some((used_tib, total_tib))
+#[cfg(test)]
+mod tests {
+  use super::parse_df;
+
+  #[test]
+  fn parses_root_filesystem_in_bytes() {
+    let output = "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/root 1048576 262144 786432 25% /\n";
+    assert_eq!(parse_df(output), Some((268_435_456, 1_073_741_824)));
+    assert_eq!(parse_df("invalid"), None);
+    assert_eq!(parse_df("header\n/dev/root 10 11 0 100% /"), None);
+  }
 }

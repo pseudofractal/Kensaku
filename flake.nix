@@ -36,8 +36,9 @@
 
           config = mkIf cfg.enable {
             home.packages = [ self.packages.${pkgs.system}.default ];
-            xdg.configFile."kensaku/config.toml".source =
-              tomlFormat.generate "config.toml" cfg.settings;
+            xdg.configFile."kensaku/config.toml" = mkIf (cfg.settings != {}) {
+              source = tomlFormat.generate "config.toml" cfg.settings;
+            };
           };
         };
     };

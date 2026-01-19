@@ -1,32 +1,37 @@
 use std::process::Command;
 
 pub fn get_package_count() -> Option<String> {
-    let native_managers = [
-        ("pacman", &["-Q"][..], 0),
-    ];
-
-    let mut native_count = 0;
-    for (cmd, args, skip_lines) in native_managers.iter() {
-        if Command::new("which").arg(cmd).output().ok()?.status.success() {
-            let output = Command::new(cmd).args(*args).output().ok()?;
-            let stdout = String::from_utf8_lossy(&output.stdout);
-
-            native_count = match *cmd {
-                "zypper" => stdout.lines().filter(|l| l.contains("| i ")).count(),
-                _ => stdout.lines().skip(*skip_lines).filter(|l| !l.trim().is_empty()).count(),
-            };
-            break;
-        }
-    }
-
-    let flatpak_count = if Command::new("which").arg("flatpak").output().ok()?.status.success() {
-        let output = Command::new("flatpak").arg("list").output().ok()?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        stdout.lines().filter(|l| !l.trim().is_empty()).count()
-    } else {
-        0
-    };
-
-    Some(format!("{} (native), {} (flatpak)", native_count, flatpak_count))
+  let managers: &[(&str, &[&str])] = &[
+    ("pacman", &["-Qq"]),
+    ("dpkg-query", &["-W", "-f=${db:Status-Abbrev}\\n"]),
+    ("rpm", &["-qa"]),
+    ("flatpak", &["list", "--app", "--columns=application"]),
+  ];
+  let counts: Vec<_> = managers
+    .iter()
+    .filter_map(|(name, args)| {
+      let output = Command::new(name)
+        .args(*args)
+        .env("LC_ALL", "C")
+        .output()
+        .ok()?;
+      if !output.status.success() {
+        return None;
+      }
+      let stdout = String::from_utf8_lossy(&output.stdout);
+      let count = if *name == "dpkg-query" {
+        stdout
+          .lines()
+          .filter(|line| line.starts_with("ii "))
+          .count()
+      } else {
+        stdout
+          .lines()
+          .filter(|line| !line.trim().is_empty())
+          .count()
+      };
+      Some(format!("{count} ({name})"))
+    })
+    .collect();
+  (!counts.is_empty()).then(|| counts.join(", "))
 }
-

@@ -1,116 +1,137 @@
-use console::{Style, measure_text_width, Color};
-use crate::config::FractalType;
-use crate::config::Config;
+use crate::config::{Config, FractalType};
 use crate::fractal;
-use crate::info::{cpu, memory, uptime, system, user, disk, ip, packages, shell, wm};
+use crate::info::{cpu, disk, extra, ip, memory, packages, shell, system, uptime, user, wm};
+use console::{measure_text_width, Color, Style};
 
 pub fn print_info(config: &Config) {
-    let accent_color = config.accent_color.unwrap_or(Color::White);
-    let mut ascii_lines: Vec<String> = Vec::new();
+  let accent = config.accent_color.unwrap_or(Color::White);
+  let style = Style::new().fg(accent);
+  let art = config
+    .art
+    .as_ref()
+    .and_then(|art| {
+      let fractal = art.fractal?;
+      if matches!(fractal, FractalType::None) {
+        return None;
+      }
+      Some(fractal::generate_ascii(
+        fractal,
+        art.max_length.unwrap_or(60),
+        art.max_breadth.unwrap_or(20),
+        art,
+      ))
+    })
+    .unwrap_or_default();
+  let art_width = art
+    .iter()
+    .map(|line| measure_text_width(line))
+    .max()
+    .unwrap_or(0);
+  let mut info = Vec::new();
+  let mut add =
+    |enabled: Option<bool>, icon: &str, label: &str, collect: &dyn Fn() -> Option<String>| {
+      if enabled.unwrap_or(false) {
+        let value = collect();
+        info.push(format_line(
+          icon,
+          label,
+          value.as_deref().unwrap_or("Unavailable"),
+          accent,
+        ));
+      }
+    };
+  add(config.user_host, "", "User", &|| {
+    user::username()
+      .zip(system::hostname())
+      .map(|(user, host)| format!("{user}@{host}"))
+  });
+  add(config.host_model, "󰌢", "Host", &extra::host_model);
+  add(config.os, "", "OS", &|| {
+    system::os_pretty_name().map(|name| format!("{name} {}", system::arch()))
+  });
+  add(config.kernel, "󰌽", "Kernel", &system::kernel_version);
+  add(config.shell, "", "Shell", &shell::get_shell);
+  add(config.terminal, "", "Terminal", &extra::terminal);
+  add(config.cpu, "", "CPU", &cpu::get_cpu_model);
+  add(config.cpu_threads, "󰍛", "CPU threads", &extra::cpu_threads);
+  add(config.load, "󰓅", "Load (1/5/15 min)", &extra::load_average);
+  add(config.memory, "󰽙", "Memory", &|| {
+    memory::get_memory_usage().map(format_usage)
+  });
+  add(config.swap, "󰓡", "Swap", &|| {
+    memory::get_swap_usage().map(format_usage)
+  });
+  add(config.disk, "", "Disk /", &|| {
+    disk::get_disk_usage().map(format_usage)
+  });
+  add(config.uptime, "󱑋", "Uptime", &uptime::get_uptime);
+  add(config.ip, "", "Local IP", &ip::get_ip_address);
+  add(
+    config.packages,
+    "󰂾",
+    "Packages",
+    &packages::get_package_count,
+  );
+  add(config.wm, "󰖯", "Desktop", &wm::get_window_manager);
 
-    let mut ascii_width = 60;
-    if let Some(art_cfg) = &config.art {
-        ascii_width = art_cfg.max_length.unwrap_or(60);
-        match art_cfg.fractal {
-            Some(FractalType::None) | None => {}
-            _ => {
-                let width = art_cfg.max_length.unwrap_or(60);
-                let height = art_cfg.max_breadth.unwrap_or(20);
-                let fractal_type = art_cfg.fractal.clone().unwrap_or(FractalType::MandelbrotSet);
-                let style = Style::new().fg(accent_color);
-                ascii_lines = fractal::generate_ascii(fractal_type, width, height)
-                        .into_iter()
-                        .map(|line| style.apply_to(line).to_string())
-                        .collect();
-            }
-        }
+  let content_width = info
+    .iter()
+    .map(|line| measure_text_width(line))
+    .max()
+    .unwrap_or(0);
+  let mut bordered = vec![format!("╭{}╮", "─".repeat(content_width + 2))];
+  for line in info {
+    let padding = content_width.saturating_sub(measure_text_width(&line));
+    bordered.push(format!("│ {line}{} │", " ".repeat(padding)));
+  }
+  bordered.push(format!("╰{}╯", "─".repeat(content_width + 2)));
+
+  for index in 0..art.len().max(bordered.len()) {
+    let info_line = bordered.get(index).map(String::as_str).unwrap_or("");
+    if art_width == 0 {
+      println!("{info_line}");
+    } else {
+      let art_line = art.get(index).map(String::as_str).unwrap_or("");
+      let padding = art_width.saturating_sub(measure_text_width(art_line));
+      println!(
+        "{}{}  {info_line}",
+        style.apply_to(art_line),
+        " ".repeat(padding)
+      );
     }
-    
-    let mut info_lines: Vec<String> = Vec::new();
+  }
+}
 
-    if config.user_host.unwrap_or(false) {
-        if let (Some(user), Some(host)) = (user::username(), system::hostname()) {
-            info_lines.push(format_line("", "User", &format!("{}@{}", user, host), accent_color));
-        }
-    }
+fn format_usage((used, total): (u64, u64)) -> String {
+  format!("{} / {}", format_bytes(used), format_bytes(total))
+}
 
-    if config.os.unwrap_or(false) {
-        if let Some(name) = system::os_pretty_name() {
-            info_lines.push(format_line("", "OS", &format!("{} {}", &name, &system::arch()), accent_color));
-        }
-    }
-
-    if config.kernel.unwrap_or(false) {
-        if let Some(k) = system::kernel_version() {
-            info_lines.push(format_line("󰌽", "Kernel", &k, accent_color));
-        }
-    }
-
-    if config.shell.unwrap_or(false) {
-        info_lines.push(format_line("", "Shell", &shell::get_shell(), accent_color));
-    }
-
-    if config.cpu.unwrap_or(false) {
-        let cpu_model = cpu::get_cpu_model().unwrap_or_else(|| "Unknown CPU".to_string());
-        info_lines.push(format_line("", "CPU", &cpu_model, accent_color));
-    }
-
-    if config.memory.unwrap_or(false) {
-        let (used, total) = memory::get_memory_usage().unwrap_or((0, 0));
-        info_lines.push(format_line("󰽙", "Memory", &format!("{} MiB / {} MiB", used, total), accent_color));
-    }
-
-    if config.uptime.unwrap_or(false) {
-        let up = uptime::get_uptime().unwrap_or_else(|| "Unknown".to_string());
-        info_lines.push(format_line("󱑋", "Uptime", &up, accent_color));
-    }
-
-    if config.disk.unwrap_or(false) {
-        if let Some((used, total)) = disk::get_disk_usage() {
-            info_lines.push(format_line("", "Disk", &format!("{:.3} GiB / {:.3} TiB", used, total), accent_color));
-        }
-    }
-
-    if config.ip.unwrap_or(false) {
-        if let Some(ip_addr) = ip::get_ip_address() {
-            info_lines.push(format_line("", "Ip", &ip_addr, accent_color));
-        }
-    }
-
-    if config.packages.unwrap_or(false) {
-        if let Some(pack) = packages::get_package_count() {
-            info_lines.push(format_line("󰂾", "Packages", &pack, accent_color));
-        }
-    }
-
-    if config.wm.unwrap_or(false) {
-        info_lines.push(format_line("󰖯", "WM", &wm::get_window_manager(), accent_color));
-    }
-
-    let content_width = info_lines.iter().map(|s| measure_text_width(s)).max().unwrap_or(0);
-    let mut bordered_info_lines = Vec::new();
-    bordered_info_lines.push(format!("╭{}╮", "─".repeat(content_width + 2)));
-    for line in info_lines.iter() {
-        let visible_len = measure_text_width(line);
-        let pad = content_width.saturating_sub(visible_len);
-        let padded_line = format!("{}{}", line, " ".repeat(pad));
-        bordered_info_lines.push(format!("│ {} │", padded_line));
-    }
-    bordered_info_lines.push(format!("╰{}╯", "─".repeat(content_width + 2)));
-
-    let max_len = ascii_lines.len().max(bordered_info_lines.len());
-    let mut padded_ascii = ascii_lines;
-    let mut padded_info = bordered_info_lines;
-
-    padded_ascii.resize(max_len, "".to_string());
-    padded_info.resize(max_len, "".to_string());
-
-    for (a, i) in padded_ascii.iter().zip(padded_info.iter()) {
-        println!("{:<width$}  {}", a, i, width = ascii_width);
-    }
+fn format_bytes(bytes: u64) -> String {
+  const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
+  let mut value = bytes as f64;
+  let mut unit = 0;
+  while value >= 1024.0 && unit < UNITS.len() - 1 {
+    value /= 1024.0;
+    unit += 1;
+  }
+  format!("{value:.2} {}", UNITS[unit])
 }
 
 fn format_line(icon: &str, label: &str, value: &str, color: Color) -> String {
-    let style = Style::new().fg(color);
-    format!("{}  {}: {}", style.apply_to(icon), style.apply_to(label), value)
+  let style = Style::new().fg(color);
+  format!(
+    "{}  {}: {value}",
+    style.apply_to(icon),
+    style.apply_to(label)
+  )
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  #[test]
+  fn formats_binary_units_consistently() {
+    assert_eq!(format_usage((1 << 30, 1 << 40)), "1.00 GiB / 1.00 TiB");
+    assert_eq!(format_bytes(0), "0.00 B");
+  }
 }
