@@ -1,7 +1,7 @@
 mod geometric;
 
 use crate::config::{ArtConfig, FractalType, JuliaParameter, PowerParameter};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 use std::f64::consts::TAU;
 
 const DEFAULT_MAX_ITERATIONS: usize = 80;
@@ -18,7 +18,7 @@ pub fn generate_ascii(
   }
   let mut rng = match options.seed {
     Some(seed) => StdRng::seed_from_u64(seed),
-    None => StdRng::from_os_rng(),
+    None => StdRng::from_rng(&mut rand::rng()),
   };
   let fractal = if matches!(fractal, FractalType::Random) {
     const CHOICES: [FractalType; 10] = [

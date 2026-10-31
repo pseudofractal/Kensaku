@@ -11,7 +11,7 @@ cargo build --release --locked
 ./target/release/kensaku
 ```
 
-Alternatively, run the default package from the Nix flake with `nix run .`. The flake also exports `homeManagerModules.default`. The flake inputs are not locked, so their revisions can change between evaluations.
+Alternatively, run the default package from the Nix flake with `nix run .`. The flake also exports `homeManagerModules.default`. Flake inputs are pinned in `flake.lock`; use `nix flake update` to refresh them.
 
 Kensaku uses useful defaults when no configuration file exists. On Linux it reads `$XDG_CONFIG_HOME/kensaku/config.toml`, or `~/.config/kensaku/config.toml` when `XDG_CONFIG_HOME` is unset. An existing file replaces the defaults: set each desired field to `true`. Unknown fields and invalid values are reported as errors.
 
@@ -57,7 +57,7 @@ The geometric fractals are finite approximations of examples in Wikipedia's [lis
 | `sierpinski_triangle` | Sierpiński triangle | log(3) / log(2) ≈ 1.585 |
 | `sierpinski_carpet` | Sierpiński carpet | log(8) / log(3) ≈ 1.893 |
 
-For `julia_set`, `julia_c = [real, imaginary]` fixes the parameter in z → z² + c. Set `julia_c = "random"` or omit it to choose a point on the boundary of the main cardioid on each run. For `multibrot`, `multibrot_power` fixes the integer exponent in z → zᵖ + c (default 3); use `"random"` to choose an integer from 2 through 8. A `seed` makes these random choices repeatable, and also fixes `fractal = "random"` selection. Fixed parameters are used even when a seed is set. These options apply only when their corresponding fractal is selected. `max_iterations` changes the detail of all escape-time fractals, including Julia and Multibrot; higher values take longer.
+For `julia_set`, `julia_c = [real, imaginary]` fixes the parameter in z → z² + c. Set `julia_c = "random"` or omit it to choose a point on the boundary of the main cardioid on each run. For `multibrot`, `multibrot_power` fixes the integer exponent in z → zᵖ + c (default 3); use `"random"` to choose an integer from 2 through 8. A `seed` makes these random choices repeatable, and also fixes `fractal = "random"` selection. Fixed parameters are used even when a seed is set. Seeded output is repeatable with the same Kensaku and dependency versions; it may change after upgrades. These options apply only when their corresponding fractal is selected. `max_iterations` changes the detail of all escape-time fractals, including Julia and Multibrot; higher values take longer.
 
 These dimensions describe the infinite mathematical sets, not the finite character images. `depth` controls their iteration count (default 3); detail can disappear at high depths on a small grid. The other choices are `mandelbrot_set`, `julia_set`, `burning_ship`, `tricorn`, and `multibrot`; `depth` does not affect these escape-time images.
 
