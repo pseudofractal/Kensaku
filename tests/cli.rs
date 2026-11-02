@@ -29,6 +29,15 @@ fn default_and_invalid_configuration() {
   assert!(without_art.status.success());
   assert!(String::from_utf8_lossy(&without_art.stdout).starts_with('╭'));
 
+  fs::write(
+    directory.join("kensaku/config.toml"),
+    "[art]\nfractal = \"julia\"\nseed = 1\n[art.julia]\nc = [-0.8, 0.156]\n",
+  )
+  .unwrap();
+  let parameterized = run();
+  assert!(parameterized.status.success());
+  assert!(!String::from_utf8_lossy(&parameterized.stdout).is_empty());
+
   fs::write(directory.join("kensaku/config.toml"), "unknown = true\n").unwrap();
   let invalid = run();
   assert!(!invalid.status.success());
@@ -51,15 +60,26 @@ fn default_and_invalid_configuration() {
   assert!(String::from_utf8_lossy(&invalid_depth.stderr).contains("depth"));
   for (config, message) in [
     (
-      "[art]\nfractal = \"julia_set\"\njulia_c = [nan, 0.0]\n",
-      "julia_c",
+      "[art]\nfractal = \"julia\"\n[art.julia]\nc = [nan, 0.0]\n",
+      "julia",
     ),
     (
-      "[art]\nfractal = \"multibrot\"\nmultibrot_power = 9\n",
-      "multibrot_power",
+      "[art]\nfractal = \"multibrot\"\n[art.multibrot]\npower = 9\n",
+      "multibrot",
     ),
     ("[art]\nmax_iterations = 0\n", "max_iterations"),
-    ("[art]\njulia_c = [0.1]\n", "julia_c"),
+    (
+      "[art]\nfractal = \"mandelbrot\"\n[art.julia]\nc = [0.0, 0.0]\n",
+      "julia",
+    ),
+    (
+      "[art]\nfractal = \"julia\"\n[art.julia]\nc = [[[0.0, 0.0], [1.0, 1.0]], \"union\"]\n",
+      "domain",
+    ),
+    (
+      "[art]\nfractal = \"multibrot\"\n[art.multibrot]\npower = [3, 5, 7]\n",
+      "one_of",
+    ),
   ] {
     fs::write(directory.join("kensaku/config.toml"), config).unwrap();
     let output = run();

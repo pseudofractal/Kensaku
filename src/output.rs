@@ -1,4 +1,4 @@
-use crate::config::{Config, FractalType};
+use crate::config::Config;
 use crate::fractal;
 use crate::info::{cpu, disk, extra, ip, memory, packages, shell, system, uptime, user, wm};
 use console::{measure_text_width, Color, Style};
@@ -9,17 +9,12 @@ pub fn print_info(config: &Config) {
   let art = config
     .art
     .as_ref()
-    .and_then(|art| {
-      let fractal = art.fractal?;
-      if matches!(fractal, FractalType::None) {
-        return None;
-      }
-      Some(fractal::generate_ascii(
-        fractal,
+    .map(|art| {
+      fractal::generate_ascii(
         art.max_length.unwrap_or(60),
         art.max_breadth.unwrap_or(20),
         art,
-      ))
+      )
     })
     .unwrap_or_default();
   let art_width = art

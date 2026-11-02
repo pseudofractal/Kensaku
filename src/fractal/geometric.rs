@@ -1,8 +1,8 @@
-use crate::config::FractalType;
+use crate::config::FractalName;
 
 /// Render finite iterations of self-similar sets on a character grid.
-pub fn render(fractal: FractalType, width: usize, height: usize, depth: u8) -> Vec<String> {
-  if matches!(fractal, FractalType::KochCurve) {
+pub fn render(fractal: FractalName, width: usize, height: usize, depth: u8) -> Vec<String> {
+  if matches!(fractal, FractalName::KochCurve) {
     return koch_curve(width, height, depth);
   }
   (0..height)
@@ -17,7 +17,7 @@ pub fn render(fractal: FractalType, width: usize, height: usize, depth: u8) -> V
               let x =
                 (column as f64 + (sample_x as f64 + 0.5) / SAMPLES_PER_AXIS as f64) / width as f64;
               match fractal {
-                FractalType::SierpinskiTriangle => triangle_contains(x, y, depth),
+                FractalName::SierpinskiTriangle => triangle_contains(x, y, depth),
                 _ => square_contains(fractal, x, y, depth),
               }
             })
@@ -50,16 +50,16 @@ fn triangle_contains(x: f64, y: f64, depth: u8) -> bool {
   true
 }
 
-fn square_contains(fractal: FractalType, mut x: f64, mut y: f64, depth: u8) -> bool {
+fn square_contains(fractal: FractalName, mut x: f64, mut y: f64, depth: u8) -> bool {
   for _ in 0..depth {
     x *= 3.0;
     y *= 3.0;
     let column = x.floor() as u8;
     let row = y.floor() as u8;
     let keep = match fractal {
-      FractalType::SierpinskiCarpet => column != 1 || row != 1,
-      FractalType::CantorDust => column != 1 && row != 1,
-      FractalType::Vicsek => column == 1 || row == 1,
+      FractalName::SierpinskiCarpet => column != 1 || row != 1,
+      FractalName::CantorDust => column != 1 && row != 1,
+      FractalName::Vicsek => column == 1 || row == 1,
       _ => unreachable!("only square fractals are passed here"),
     };
     if !keep {
@@ -127,9 +127,9 @@ mod tests {
   #[test]
   fn square_first_iteration_has_expected_copies() {
     for (fractal, count) in [
-      (FractalType::SierpinskiCarpet, 8),
-      (FractalType::CantorDust, 4),
-      (FractalType::Vicsek, 5),
+      (FractalName::SierpinskiCarpet, 8),
+      (FractalName::CantorDust, 4),
+      (FractalName::Vicsek, 5),
     ] {
       let rows = render(fractal, 3, 3, 1);
       assert_eq!(
@@ -145,7 +145,7 @@ mod tests {
 
   #[test]
   fn cantor_dust_remains_visible_at_terminal_resolution() {
-    let rows = render(FractalType::CantorDust, 40, 16, 3);
+    let rows = render(FractalName::CantorDust, 40, 16, 3);
     assert!(rows.iter().filter(|row| row.contains('█')).count() >= 6);
     assert!(rows[7].chars().all(|character| character == ' '));
   }

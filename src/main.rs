@@ -1,4 +1,5 @@
 mod config;
+mod domain;
 mod fractal;
 mod info;
 mod output;
@@ -13,7 +14,7 @@ fn main() {
         println!("Kensaku {}\n\nUsage: kensaku [--help | --version | --list-fractals]\n\nRun without arguments to display system information.\nSee the README for configuration options.", env!("CARGO_PKG_VERSION"));
       }
       [arg] if arg == "--version" || arg == "-V" => println!("kensaku {}", env!("CARGO_PKG_VERSION")),
-      [arg] if arg == "--list-fractals" => println!("random\nmandelbrot_set\njulia_set\nburning_ship\ntricorn\nmultibrot\nsierpinski_triangle\nsierpinski_carpet\ncantor_dust\nvicsek\nkoch_curve\nnone"),
+      [arg] if arg == "--list-fractals" => println!("random\nnone\nmandelbrot\njulia\nburning_ship\ntricorn\nmultibrot\nsierpinski_triangle\nsierpinski_carpet\ncantor_dust\nvicsek\nkoch_curve"),
       _ => {
         eprintln!("kensaku: unrecognized arguments; use --help for usage");
         std::process::exit(2);
